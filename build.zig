@@ -11,12 +11,10 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "todo",
         // The root source file is main.zig.
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    exe.addSourceFile(.{ .path = "src/task.zig" });
-    exe.addSourceFile(.{ .path = "src/storage.zig" });
 
     // This adds the executable to the build's installation step.
     // Running 'zig build' will create it in 'zig-out/bin/todo'.

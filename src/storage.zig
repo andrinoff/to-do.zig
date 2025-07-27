@@ -5,7 +5,10 @@ const data_file_name = ".zig_todo.json";
 
 /// Gets the full path to the data file, placing it in the user's home directory.
 fn getStoragePath(allocator: std.mem.Allocator) ![]u8 {
-    const home_dir = try std.fs.homeDir();
+    const home_dir = std.posix.getenv("HOME") orelse {
+        std.log.err("HOME environment variable not set", .{});
+        return error.HomeNotFound;
+    };
     return std.fs.path.join(allocator, &.{ home_dir, data_file_name });
 }
 
@@ -43,11 +46,19 @@ pub fn loadTasks(allocator: std.mem.Allocator) !std.ArrayList(Task) {
     }
 
     // Parse the JSON content into our Task structs.
-    const parse_options = .{ .allocator = allocator };
-    return std.json.parseFromSlice(std.ArrayList(Task), allocator, file_content, parse_options) catch |err| {
+    const parsed = std.json.parseFromSlice([]Task, allocator, file_content, .{}) catch |err| {
         std.log.err("Failed to parse task file (is it corrupt?): {s}", .{@errorName(err)});
         return err;
     };
+    defer parsed.deinit();
+
+    // Convert the parsed slice to an ArrayList
+    var tasks = std.ArrayList(Task).init(allocator);
+    for (parsed.value) |task| {
+        try tasks.append(task);
+    }
+
+    return tasks;
 }
 
 /// Saves the list of tasks to the JSON file.
@@ -60,6 +71,5 @@ pub fn saveTasks(tasks: std.ArrayList(Task)) !void {
     defer file.close();
 
     // Serialize the task list to JSON and write it to the file.
-    const stringify_options = .{ .whitespace = .indent_4 };
-    try std.json.stringify(tasks.toOwnedSlice(), stringify_options, file.writer());
+    try std.json.stringify(tasks.items, .{ .whitespace = .indent_4 }, file.writer());
 }
