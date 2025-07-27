@@ -18,6 +18,15 @@ pub fn main() !void {
 
     // Load existing tasks from the file.
     var tasks = try storage.loadTasks(allocator);
+    // Ensure we free all task memory when the program exits
+    defer {
+        // Free all task descriptions before deinitializing the list
+        for (tasks.items) |task| {
+            allocator.free(task.description);
+        }
+        tasks.deinit();
+    }
+
     // `defer` ensures `saveTasks` is called right before the function exits,
     // whether it exits normally or due to an error. This is a powerful feature.
     defer storage.saveTasks(tasks) catch |err| {
@@ -46,7 +55,7 @@ pub fn main() !void {
         // Join all arguments after 'add' to form the task description.
         const description = try std.mem.join(allocator, " ", args[2..]);
         defer allocator.free(description);
-        try addTask(&tasks, description);
+        try addTask(&tasks, description, allocator);
         try stdout_writer.writeAll("Added new task.\n");
     } else if (std.mem.eql(u8, command, "done")) {
         if (args.len < 3) {
@@ -87,7 +96,7 @@ fn listTasks(tasks: std.ArrayList(Task), writer: anytype) !void {
     }
 }
 
-fn addTask(tasks: *std.ArrayList(Task), description: []const u8) !void {
+fn addTask(tasks: *std.ArrayList(Task), description: []const u8, allocator: std.mem.Allocator) !void {
     // Find the highest existing ID to determine the next ID.
     var next_id: u32 = 0;
     for (tasks.items) |task| {
@@ -99,7 +108,7 @@ fn addTask(tasks: *std.ArrayList(Task), description: []const u8) !void {
 
     const new_task = Task{
         .id = next_id,
-        .description = try tasks.allocator.dupe(u8, description),
+        .description = try allocator.dupe(u8, description),
         .completed = false,
     };
 

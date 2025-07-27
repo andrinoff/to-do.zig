@@ -55,7 +55,14 @@ pub fn loadTasks(allocator: std.mem.Allocator) !std.ArrayList(Task) {
     // Convert the parsed slice to an ArrayList
     var tasks = std.ArrayList(Task).init(allocator);
     for (parsed.value) |task| {
-        try tasks.append(task);
+        // We need to duplicate the description string since the parsed data will be freed
+        const owned_description = try allocator.dupe(u8, task.description);
+        const owned_task = Task{
+            .id = task.id,
+            .description = owned_description,
+            .completed = task.completed,
+        };
+        try tasks.append(owned_task);
     }
 
     return tasks;
